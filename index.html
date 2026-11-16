@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>樣本數估算工具｜研究方法</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Noto Sans CJK TC', 'Microsoft JhengHei', sans-serif; background: #f4f6f9; color: #1a1a1a; }
+header { background: #1F3864; color: #fff; padding: 22px 18px 18px; text-align: center; }
+header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: 2px; }
+header p { margin: 0; font-size: 15px; opacity: .85; }
+main { max-width: 760px; margin: 0 auto; padding: 16px 14px 30px; }
+.card { background: #fff; border: 1px solid #d5dce6; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+.card h2 { margin: 0 0 10px; font-size: 18px; color: #1F3864; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tabs button { flex: 1 1 45%; padding: 12px 6px; font-size: 16.5px; border: 1.5px solid #1F3864; background: #fff; color: #1F3864; border-radius: 8px; cursor: pointer; font-family: inherit; }
+.tabs button.on { background: #1F3864; color: #fff; font-weight: 700; }
+.row { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+.row label { flex: 0 0 200px; font-size: 16.5px; }
+.row input { flex: 0 0 130px; font-size: 17px; padding: 8px 10px; border: 1px solid #9aa7ba; border-radius: 6px; font-family: inherit; }
+.row .hint { font-size: 13.5px; color: #666; flex: 1 1 100%; margin-left: 210px; }
+.chips { display: inline-flex; gap: 6px; }
+.chips button { padding: 5px 12px; font-size: 14.5px; border: 1px solid #1F3864; background: #eef2f8; color: #1F3864; border-radius: 20px; cursor: pointer; font-family: inherit; }
+.helper { background: #f7f9fc; border: 1px dashed #9aa7ba; border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
+.helper p { margin: 4px 0; font-size: 15px; }
+.helper input { width: 90px; font-size: 15.5px; padding: 5px 8px; border: 1px solid #9aa7ba; border-radius: 5px; font-family: inherit; }
+.go { width: 100%; padding: 15px; font-size: 19px; font-weight: 700; background: #C00000; color: #fff; border: none; border-radius: 9px; cursor: pointer; font-family: inherit; letter-spacing: 3px; }
+.result { display: none; }
+.result .big { font-size: 21px; line-height: 1.6; }
+.result .n { font-size: 40px; font-weight: 800; color: #C00000; }
+.sentence { background: #f7f9fc; border-left: 4px solid #1F3864; padding: 10px 14px; font-size: 16px; line-height: 1.7; margin-top: 10px; }
+.copybtn { margin-top: 8px; padding: 8px 18px; font-size: 15px; border: 1px solid #1F3864; background: #fff; color: #1F3864; border-radius: 6px; cursor: pointer; font-family: inherit; }
+.err { color: #C00000; font-size: 15.5px; display: none; margin-top: 8px; }
+footer { max-width: 760px; margin: 0 auto; padding: 0 16px 26px; font-size: 13.5px; color: #777; line-height: 1.7; }
+.hide { display: none; }
+@media (max-width: 560px) { .row label { flex-basis: 100%; } .row .hint { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>樣本數估算工具</h1>
+  <p>研究方法教學用 · 事前檢定力分析（A priori）· 計算原理與 G*Power 3.1 相同</p>
+</header>
+<main>
+  <div class="card">
+    <h2>一、先選你要做的統計檢定</h2>
+    <div class="tabs">
+      <button data-t="reg" class="on">多元迴歸分析</button>
+      <button data-t="ttest">獨立樣本 t 檢定</button>
+      <button data-t="corr">相關分析</button>
+      <button data-t="anova">單因子變異數分析</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>二、輸入參數</h2>
+    <div class="row"><label>顯著水準 α</label><input id="alpha" type="number" step="0.01" value="0.05"><span class="hint">慣例 0.05：100 次判斷最多容許錯 5 次</span></div>
+    <div class="row"><label>檢定力 Power</label><input id="power" type="number" step="0.05" value="0.80"><span class="hint">慣例 0.80：真的有效果時，八成機會抓得到</span></div>
+
+    <div id="p-reg">
+      <div class="row"><label>效果量 f²</label><input id="f2" type="number" step="0.01" value="0.15">
+        <span class="chips"><button data-set="f2" data-v="0.02">小 .02</button><button data-set="f2" data-v="0.15">中 .15</button><button data-set="f2" data-v="0.35">大 .35</button></span>
+        <span class="hint">Cohen 慣例：小 .02、中 .15、大 .35；有文獻就用文獻的效果量</span></div>
+      <div class="row"><label>預測變項數</label><input id="npred" type="number" step="1" value="8"><span class="hint">迴歸模型裡放的預測變項總數（含控制變項）</span></div>
+      <div class="helper"><p>手邊只有文獻的 R²？輸入 R² 幫你換算 f²：<input id="r2in" type="number" step="0.01" placeholder="例如 0.13"> <span id="r2out"></span></p></div>
+    </div>
+
+    <div id="p-ttest" class="hide">
+      <div class="row"><label>效果量 d</label><input id="d" type="number" step="0.1" value="0.5">
+        <span class="chips"><button data-set="d" data-v="0.2">小 .2</button><button data-set="d" data-v="0.5">中 .5</button><button data-set="d" data-v="0.8">大 .8</button></span>
+        <span class="hint">Cohen 慣例：小 .2、中 .5、大 .8（兩組人數相同、雙尾檢定）</span></div>
+      <div class="helper"><p>用文獻的平均數與標準差換算 d（兩組人數相近時）：</p>
+        <p>第一組 平均 <input id="m1" type="number" step="any"> 標準差 <input id="s1" type="number" step="any"></p>
+        <p>第二組 平均 <input id="m2" type="number" step="any"> 標準差 <input id="s2" type="number" step="any"> <span id="dout"></span></p></div>
+    </div>
+
+    <div id="p-corr" class="hide">
+      <div class="row"><label>預期相關係數 ρ</label><input id="rho" type="number" step="0.05" value="0.3">
+        <span class="chips"><button data-set="rho" data-v="0.1">小 .1</button><button data-set="rho" data-v="0.3">中 .3</button><button data-set="rho" data-v="0.5">大 .5</button></span>
+        <span class="hint">依文獻或先導研究估計（雙尾檢定）</span></div>
+    </div>
+
+    <div id="p-anova" class="hide">
+      <div class="row"><label>效果量 f</label><input id="f" type="number" step="0.05" value="0.25">
+        <span class="chips"><button data-set="f" data-v="0.1">小 .10</button><button data-set="f" data-v="0.25">中 .25</button><button data-set="f" data-v="0.4">大 .40</button></span>
+        <span class="hint">Cohen 慣例：小 .10、中 .25、大 .40</span></div>
+      <div class="row"><label>組數</label><input id="k" type="number" step="1" value="3"><span class="hint">比較幾個組（例如三種教學法就是 3 組）</span></div>
+    </div>
+
+    <div class="err" id="err"></div>
+    <div style="height:10px"></div>
+    <button class="go" id="go">計 算 樣 本 數</button>
+  </div>
+
+  <div class="card result" id="result">
+    <h2>三、結果</h2>
+    <div class="big" id="big"></div>
+    <div class="sentence" id="sentence"></div>
+    <button class="copybtn" id="copy">複製論文句型</button>
+    <button class="copybtn" id="addCmp">＋ 加入比較清單</button>
+    <p style="font-size:14px;color:#666;margin:10px 0 0;">提醒：算出來的是「有效樣本」的下限。發放問卷要再往上抓：最低樣本 ÷ 預估回收率 ÷（1－無效比例）。</p>
+  </div>
+
+  <div class="card result" id="cmpCard">
+    <h2>四、多個分析一起比較（取最大值）</h2>
+    <div id="cmpList" style="font-size:16.5px;line-height:1.9;"></div>
+    <div class="sentence" id="cmpSentence"></div>
+    <button class="copybtn" id="copyCmp">複製論文句型</button>
+    <button class="copybtn" id="clearCmp">清除清單</button>
+    <p style="font-size:14px;color:#666;margin:10px 0 0;">一篇論文跑好幾個分析時，不用每個都寫估算——以需求最高的那個為標準，其他分析的檢定力自然足夠。</p>
+  </div>
+</main>
+<footer>本工具依非中央 F 分配之事前檢定力分析計算，與 G*Power 3.1 相同原理；正式寫入論文前，建議再以 G*Power 複核一次，並把估算過程（α、檢定力、效果量出處）寫進第三章。</footer>
+
+<script>
+function lgamma(z){var c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];if(z<0.5)return Math.log(Math.PI)-Math.log(Math.sin(Math.PI*z))-lgamma(1-z);z-=1;var x=c[0];for(var i=1;i<9;i++)x+=c[i]/(z+i);var t=z+7.5;return 0.5*Math.log(2*Math.PI)+(z+0.5)*Math.log(t)-t+Math.log(x);}
+function betacf(a,b,x){var MAXIT=200,EPS=3e-14,FPMIN=1e-300;var qab=a+b,qap=a+1,qam=a-1;var c=1,d=1-qab*x/qap;if(Math.abs(d)<FPMIN)d=FPMIN;d=1/d;var h=d;for(var m=1;m<=MAXIT;m++){var m2=2*m;var aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;h*=d*c;aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;var del=d*c;h*=del;if(Math.abs(del-1)<EPS)break;}return h;}
+function betai(a,b,x){if(x<=0)return 0;if(x>=1)return 1;var bt=Math.exp(lgamma(a+b)-lgamma(a)-lgamma(b)+a*Math.log(x)+b*Math.log(1-x));if(x<(a+1)/(a+b+2))return bt*betacf(a,b,x)/a;return 1-bt*betacf(b,a,1-x)/b;}
+function fCdf(x,u,v){if(x<=0)return 0;return betai(u/2,v/2,(u*x)/(u*x+v));}
+function fInv(p,u,v){var lo=1e-9,hi=1;while(fCdf(hi,u,v)<p){hi*=2;if(hi>1e9)break;}for(var i=0;i<200;i++){var mid=(lo+hi)/2;if(fCdf(mid,u,v)<p)lo=mid;else hi=mid;}return (lo+hi)/2;}
+function ncfCdf(x,u,v,lambda){if(x<=0)return 0;var z=(u*x)/(u*x+v);if(lambda===0)return betai(u/2,v/2,z);var half=lambda/2;var j0=Math.floor(half);var w0=Math.exp(-half+(j0>0?j0*Math.log(half):0)-lgamma(j0+1));var sum=0;var w=w0,j=j0;while(true){sum+=w*betai(u/2+j,v/2,z);var wn=w*half/(j+1);if(wn<1e-13)break;w=wn;j++;if(j>j0+2000)break;}w=w0;j=j0;while(j>0){w=w*j/half;j--;sum+=w*betai(u/2+j,v/2,z);if(w<1e-13)break;}return Math.min(sum,1);}
+function powerF(df1,df2,lambda,alpha){var fc=fInv(1-alpha,df1,df2);return 1-ncfCdf(fc,df1,df2,lambda);}
+function findN(powerFn,minN,target){var lo=minN;if(powerFn(lo)>=target)return lo;var hi=lo*2;while(powerFn(hi)<target){hi*=2;if(hi>2e7)return hi;}while(hi-lo>1){var mid=Math.floor((lo+hi)/2);if(powerFn(mid)>=target)hi=mid;else lo=mid;}return hi;}
+
+var cur='reg';
+document.querySelectorAll('.tabs button').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tabs button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');cur=b.dataset.t;['reg','ttest','corr','anova'].forEach(function(t){document.getElementById('p-'+t).classList.toggle('hide',t!==cur);});document.getElementById('result').style.display='none';});});
+document.querySelectorAll('.chips button').forEach(function(b){b.addEventListener('click',function(){document.getElementById(b.dataset.set).value=b.dataset.v;});});
+document.getElementById('r2in').addEventListener('input',function(){var r2=parseFloat(this.value);var o=document.getElementById('r2out');if(isNaN(r2)||r2<=0||r2>=1){o.textContent='';return;}var f2=r2/(1-r2);o.textContent='→ f² ＝ '+f2.toFixed(3);document.getElementById('f2').value=f2.toFixed(3);});
+function calcD(){var m1=parseFloat(document.getElementById('m1').value),m2=parseFloat(document.getElementById('m2').value),s1=parseFloat(document.getElementById('s1').value),s2=parseFloat(document.getElementById('s2').value);var o=document.getElementById('dout');if([m1,m2,s1,s2].some(isNaN)){o.textContent='';return;}var sp=Math.sqrt((s1*s1+s2*s2)/2);if(sp===0){o.textContent='';return;}var d=Math.abs(m1-m2)/sp;o.textContent='→ d ＝ '+d.toFixed(3);document.getElementById('d').value=d.toFixed(3);}
+['m1','m2','s1','s2'].forEach(function(id){document.getElementById(id).addEventListener('input',calcD);});
+
+var lastCalc=null;
+function num(id){return parseFloat(document.getElementById(id).value);}
+function showErr(msg){var e=document.getElementById('err');e.textContent=msg;e.style.display=msg?'block':'none';return !msg;}
+
+document.getElementById('go').addEventListener('click',function(){
+  showErr('');
+  var alpha=num('alpha'),pw=num('power');
+  if(isNaN(alpha)||alpha<=0||alpha>=1)return showErr('α 請輸入 0 到 1 之間的數字（慣例 0.05）。');
+  if(isNaN(pw)||pw<=0.5||pw>=1)return showErr('檢定力請輸入 0.5 到 1 之間的數字（慣例 0.80）。');
+  var big='',sent='';
+  if(cur==='reg'){
+    var f2=num('f2'),u=Math.round(num('npred'));
+    if(isNaN(f2)||f2<=0)return showErr('效果量 f² 要大於 0。');
+    if(isNaN(u)||u<1)return showErr('預測變項數至少 1 個。');
+    var pf=function(N){var df2=N-u-1;if(df2<=0)return 0;return powerF(u,df2,f2*N,alpha);};
+    var N=findN(pf,u+2,pw);var ap=pf(N);
+    lastCalc={label:'多元迴歸分析', total:N};
+    big='最少需要 <span class="n">'+N+'</span> 份有效樣本<br><span style="font-size:16px;color:#555;">（實際檢定力 '+ap.toFixed(3)+'；預測變項 '+u+' 個）</span>';
+    sent='本研究以事前檢定力分析估算樣本數：採多元迴歸之 R² 檢定，設定顯著水準 α＝'+alpha+'、檢定力 '+pw+'、效果量 f²＝'+f2+'、預測變項 '+u+' 個，推估最少需 '+N+' 份有效樣本。';
+  }else if(cur==='ttest'){
+    var d=num('d');
+    if(isNaN(d)||d<=0)return showErr('效果量 d 要大於 0。');
+    var pf2=function(n){var df=2*n-2;if(df<=0)return 0;var delta=d*Math.sqrt(n/2);return powerF(1,df,delta*delta,alpha);};
+    var n=findN(pf2,2,pw);var ap2=pf2(n);
+    lastCalc={label:'獨立樣本 t 檢定', total:2*n};
+    big='每組最少需要 <span class="n">'+n+'</span> 人，兩組共 '+(2*n)+' 人<br><span style="font-size:16px;color:#555;">（實際檢定力 '+ap2.toFixed(3)+'）</span>';
+    sent='本研究以事前檢定力分析估算樣本數：採獨立樣本 t 檢定（雙尾），設定顯著水準 α＝'+alpha+'、檢定力 '+pw+'、效果量 d＝'+d+'，推估每組最少需 '+n+' 人，總樣本 '+(2*n)+' 人。';
+  }else if(cur==='corr'){
+    var rho=num('rho');
+    if(isNaN(rho)||rho<=0||rho>=1)return showErr('相關係數 ρ 請輸入 0 到 1 之間的數字。');
+    var pf3=function(N){var df=N-2;if(df<=0)return 0;var delta=rho*Math.sqrt(df)/Math.sqrt(1-rho*rho);return powerF(1,df,delta*delta,alpha);};
+    var N3=findN(pf3,4,pw);var ap3=pf3(N3);
+    lastCalc={label:'相關分析', total:N3};
+    big='最少需要 <span class="n">'+N3+'</span> 位受試者<br><span style="font-size:16px;color:#555;">（實際檢定力 '+ap3.toFixed(3)+'）</span>';
+    sent='本研究以事前檢定力分析估算樣本數：採雙尾相關檢定，設定顯著水準 α＝'+alpha+'、檢定力 '+pw+'、預期相關係數 ρ＝'+rho+'，推估最少需 '+N3+' 位受試者。';
+  }else{
+    var f=num('f'),k=Math.round(num('k'));
+    if(isNaN(f)||f<=0)return showErr('效果量 f 要大於 0。');
+    if(isNaN(k)||k<2)return showErr('組數至少 2 組。');
+    var pf4=function(m){var N=m*k;var df2=N-k;if(df2<=0)return 0;return powerF(k-1,df2,f*f*N,alpha);};
+    var m4=findN(pf4,2,pw);var N4=m4*k;var ap4=pf4(m4);
+    lastCalc={label:'單因子變異數分析', total:N4};
+    big='總樣本最少需要 <span class="n">'+N4+'</span> 人<br><span style="font-size:16px;color:#555;">（共 '+k+' 組，每組 '+m4+' 人；實際檢定力 '+ap4.toFixed(3)+'）</span>';
+    sent='本研究以事前檢定力分析估算樣本數：採單因子變異數分析，設定顯著水準 α＝'+alpha+'、檢定力 '+pw+'、效果量 f＝'+f+'、共 '+k+' 組，推估總樣本最少需 '+N4+' 人（每組 '+m4+' 人）。';
+  }
+  document.getElementById('big').innerHTML=big;
+  document.getElementById('sentence').textContent=sent;
+  document.getElementById('result').style.display='block';
+  document.getElementById('result').scrollIntoView({behavior:'smooth'});
+});
+document.getElementById('copy').addEventListener('click',function(){var t=document.getElementById('sentence').textContent;if(navigator.clipboard)navigator.clipboard.writeText(t);this.textContent='已複製';var b=this;setTimeout(function(){b.textContent='複製論文句型';},1500);});
+var cmp=[];
+function renderCmp(){var card=document.getElementById('cmpCard');if(cmp.length===0){card.style.display='none';return;}card.style.display='block';var maxI=0;cmp.forEach(function(c,i){if(c.total>cmp[maxI].total)maxI=i;});var html='';cmp.forEach(function(c,i){var mark=(cmp.length>1&&i===maxI);html+=(mark?'<b style="color:#C00000;">':'')+c.label+'：最少 '+c.total+' 份'+(mark?' ← 以這個為標準</b>':'')+'<br>';});document.getElementById('cmpList').innerHTML=html;var s='';if(cmp.length>1){s='本研究各項分析之樣本數需求，以'+cmp[maxI].label+'之 '+cmp[maxI].total+' 份最高，爰以 '+cmp[maxI].total+' 份為最低樣本數標準。';}var se=document.getElementById('cmpSentence');se.textContent=s;se.style.display=s?'block':'none';}
+document.getElementById('addCmp').addEventListener('click',function(){if(!lastCalc||document.getElementById('result').style.display!=='block')return;cmp.push(lastCalc);renderCmp();this.textContent='已加入（共 '+cmp.length+' 個分析）';var b=this;setTimeout(function(){b.textContent='＋ 加入比較清單';},1500);document.getElementById('cmpCard').scrollIntoView({behavior:'smooth'});});
+document.getElementById('clearCmp').addEventListener('click',function(){cmp=[];renderCmp();});
+document.getElementById('copyCmp').addEventListener('click',function(){var t=document.getElementById('cmpSentence').textContent;if(t&&navigator.clipboard)navigator.clipboard.writeText(t);this.textContent='已複製';var b=this;setTimeout(function(){b.textContent='複製論文句型';},1500);});
+</script>
+</body>
+</html>
